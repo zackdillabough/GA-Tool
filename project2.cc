@@ -156,7 +156,7 @@ void printTerminalsAndNoneTerminals()
 		cout << symbols[nonterms[i]] << " ";
 }
 
-// Task 2
+// Task 2 test
 void RemoveUselessSymbols()
 {
     cout << "2\n";
