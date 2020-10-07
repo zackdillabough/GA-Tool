@@ -108,6 +108,8 @@ void parseRule() {
 	parseRHS(r);
 
 	expect(STAR);
+
+	rules.push_back(r);
 }
 
 void parseRuleList() {
@@ -137,7 +139,21 @@ void ReadGrammar()
 // Task 1
 void printTerminalsAndNoneTerminals()
 {
-    cout << "1\n";
+	vector<int> terms;
+	vector<int> nonterms;
+
+	for (int i = 2; i < symbols.size(); i++) {
+		if(nonterminals.find(symbolmap[symbols[i]]) == nonterminals.end())
+			terms.push_back(symbolmap[symbols[i]]);
+		else
+			nonterms.push_back(symbolmap[symbols[i]]);
+	}
+
+	for (int i = 0; i < terms.size(); i++)
+		cout << symbols[terms[i]] << " ";
+
+	for (int i = 0; i < nonterms.size(); i++)
+		cout << symbols[nonterms[i]] << " ";
 }
 
 // Task 2
