@@ -20,9 +20,11 @@ void calcReachableSymbols (std::vector<rule*>* result);
 void RemoveUselessSymbols();
 bool addSet (std::unordered_set<int>* a, std::unordered_set<int>* b, int mode);
 bool intersectSets(std::unordered_set<int>* a, std::unordered_set<int>* b);
-void printSets (std::unordered_map<int, std::unordered_set<int>>* s);
+bool intersectSets(std::vector<int>* setSymbols);
+void printSets (std::unordered_map<int, std::unordered_set<int>>* s, int mode);
+void printRule (rule* r);
 std::unordered_map<int, std::unordered_set<int>>* CalculateFirstSets();
-void CalculateFollowSets();
+std::unordered_map<int, std::unordered_set<int>>* CalculateFollowSets(std::unordered_map<int, std::unordered_set<int>>* FIRST);
 void CheckIfGrammarHasPredictiveParser();
 int main (int argc, char* argv[]);
 

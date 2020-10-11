@@ -6,6 +6,7 @@
 #include <iostream>
 #include <cstdio>
 #include <cstdlib>
+#include <map>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -313,21 +314,16 @@ void printSets (std::unordered_map<int, std::unordered_set<int>>* s, int mode) {
 
 		cout << setName << "(" << symbols[nonterms[i]] << ") = { ";
 
-		if (mode) {
-			bool firstFound = false;
-			for (int j = 0; j < symbols.size(); j++) {
-				if ((*s)[nonterms[i]].find(j) != (*s)[nonterms[i]].end())
-					if (!firstFound) {
-						cout << symbols[j];
-						firstFound = true;
-					} else
-						cout << ", " << symbols[j];
-			}
-			cout << " }" << endl;
-
-		} else {
-
+		bool firstFound = false;
+		for (int j = 0; j < symbols.size(); j++) {
+			if ((*s)[nonterms[i]].find(j) != (*s)[nonterms[i]].end())
+				if (!firstFound) {
+					cout << symbols[j];
+					firstFound = true;
+				} else
+					cout << ", " << symbols[j];
 		}
+		cout << " }" << endl;
 	}
 }
 
@@ -384,22 +380,126 @@ unordered_map<int, unordered_set<int>>* CalculateFirstSets() {
 				else
 					changed = addSet(&(*FIRST)[0], &(*FIRST)[(*it)->LHS], 0);
 			}
-
-			if (changed)
-				cout << endl;
 		}
 	}
 
 	return FIRST;
 }
 
+void printRule(rule* r) {
+	cout << symbols[r->LHS] << " ->";
+	for (auto it = r->RHS.begin(); it != r->RHS.end(); it++) {
+		cout << " " << symbols[*it];
+	}
+	cout << endl;
+}
+
 // Task 4
-void CalculateFollowSets() {
-    cout << "4\n";
+unordered_map<int, unordered_set<int>>* CalculateFollowSets(unordered_map<int, unordered_set<int>>* FIRST) {
+
+	unordered_map<int, unordered_set<int>>* FOLLOW = new unordered_map<int, unordered_set<int>>;
+
+	// start by applying rule I to add $ to FOLLOW(S)
+	int LHSindex = rules[0]->LHS;
+	(*FOLLOW)[LHSindex].insert(1);
+
+	// first pass, apply rules IV and V to all grammar rules
+	for (auto it = rules.begin(); it != rules.end(); it++) {
+
+		int RHSsize = (*it)->RHS.size();
+		int nextIndex = 0;
+
+		// apply rule IV to all nonterminals in a given rule
+		for (int i = 0; i < RHSsize; i++) {
+
+			// get current symbol index
+			int currentSym = (*it)->RHS[i];
+
+			// check if current symbol is a nonterminal
+			// if a subsequent symbol exists, add it's first set (minus epsilon)
+			// to the current symbol's FOLLOW set.
+			if ((nonterminals.find(currentSym) != nonterminals.end()) && (i + 1 < RHSsize)) {
+				nextIndex = (*it)->RHS[i + 1];
+				addSet(&(*FIRST)[nextIndex], &(*FOLLOW)[currentSym], 1);
+			}
+		}
+
+		// apply rule V to all nonterminals in a given rule
+		if (RHSsize > 2) {
+			for (int i = 0; i < RHSsize; i++) {
+				
+				// get current symbol index
+				int currentSym = (*it)->RHS[i];
+				
+				// check if current symbol is a nonterminal
+				if (nonterminals.find(currentSym) != nonterminals.end()) {
+
+					// iterate through subsequent symbols, 
+					// adding FIRST(subsequent) - {epsilon} to the current nonterminal's FOLLOW set 
+					// if the symbols between the currentSym and subsequent symbol all contain epsilon
+					int subseqSym = 0;
+					for (int j = i + 1; j < RHSsize; j++) {
+						if (j < RHSsize) {
+							subseqSym = (*it)->RHS[j];
+
+							// check if subsequent symbol's FIRST set contains epsilon
+							if((*FIRST)[subseqSym].find(0) != (*FIRST)[subseqSym].end()) {
+								addSet(&(*FIRST)[subseqSym], &(*FOLLOW)[currentSym], 1);
+							} else {
+								addSet(&(*FIRST)[subseqSym], &(*FOLLOW)[currentSym], 1);
+								break;
+							}
+						} else
+							break;
+					}
+				}
+			}
+		}
+	}
+
+	// apply rules II and III to all grammar rules until there are no changes
+	bool changed = true;
+	while (changed) {
+		changed = false;
+		for (auto it = rules.begin(); it != rules.end(); it++) {
+			int currentRule = (*it)->LHS;
+			int RHSsize = (*it)->RHS.size();
+
+			// apply rule II
+			if (RHSsize > 0) {
+				int lastSym = (*it)->RHS[RHSsize - 1];
+				if (nonterminals.find(lastSym) != nonterminals.end())
+					changed = changed || addSet(&(*FOLLOW)[currentRule], &(*FOLLOW)[lastSym], 0);
+
+				// apply rule III
+				if ((*FIRST)[lastSym].find(0) != (*FIRST)[lastSym].end())
+					for (int i = RHSsize - 2; i >= 0; i--) {
+						int currentSym = (*it)->RHS[i];
+
+						// check if the current symbol is a nonterminal
+						// if it's not, continue on to the next rule
+						if (nonterminals.find(currentSym) != nonterminals.end()) {
+
+							// starting from the last rule, check if the FIRST set of the
+							// currently observed symbol contains epsilon.
+							if((*FIRST)[currentSym].find(0) != (*FIRST)[(*it)->RHS[i]].end()) {
+								changed = changed || addSet(&(*FOLLOW)[currentRule], &(*FOLLOW)[currentSym], 0);
+							} else {
+								changed = changed || addSet(&(*FOLLOW)[currentRule], &(*FOLLOW)[currentSym], 0);
+								break;
+							}
+						} else
+							break;
+					}
+			}
+		}
+	}
+	
+	return FOLLOW;
 }
 
 // this function performs "a intersect b", (for a,b are sets) and
-// returns 0 if the result is the empty set, and returns 1 if the
+// returns true if the result is the empty set, and returns false if the
 // result is not the empty set
 bool intersectSets(unordered_set<int>* a, unordered_set<int>* b) {
 	unordered_set<int>* larger = a;
@@ -421,18 +521,92 @@ bool intersectSets(unordered_set<int>* a, unordered_set<int>* b) {
 	return isNil;
 }
 
+// this function performs "a intersect b intersect ... intersect k", (for a...k are sets) and
+// returns true if the result is the empty set, and returns false if the
+// result is not the empty set
+bool intersectSets(vector<int>* setSymbols) {
+	unordered_map<int, int> seenSyms;
+	bool isNil = true;
+
+	for (int i = 0; i < setSymbols->size(); i++) {
+		if (seenSyms.count((*setSymbols)[i]) == 0)
+			seenSyms[(*setSymbols)[i]] = 1;
+		else {
+			isNil = false;
+			break;
+		}
+	}
+
+	return isNil;
+}
+
 // Task 5
 void CheckIfGrammarHasPredictiveParser() {
 	vector<rule*>* vec = new vector<rule*>;
+	bool hasPredParser = true;
+
+	// check if any of the rules are useless
+	// to determine if the grammar has a predictive parser
 	calcGeneratingSymbols(vec);
 	calcReachableSymbols(vec);
 
 	if(vec->size() != rules.size())
-		cout << "NO" << endl;
+		hasPredParser = false;
 	else {
-		cout << "YES" << endl;
-		//unordered_map<int, unordered_set<int>> = CalculateFirstSets();
+		// if none of the rules are useless,
+		// check the formal rules of predictive parsing
+		unordered_map<int, unordered_set<int>>* firstSets = CalculateFirstSets();
+		unordered_map<int, unordered_set<int>>* followSets = CalculateFollowSets(firstSets);
+		multimap<int, rule*> ruleSets;
+
+		for (int i = 0; i < rules.size(); i++)
+			ruleSets.insert(pair<int, rule*>(rules[i]->LHS, rules[i]));
+
+		// iterate through each non-terminal's rules and determine if the following conditions are met:
+		// condition 1: FIRST(a) intersect FIRST(b) == null set (for a and b are the RHS of a given NT's rules), and
+		// condition 2: if a nonterminal A derives to epsilon, check if
+		// 				FIRST(A) intersect FOLLOW(A)
+		for (auto nt = nonterminals.begin(); nt != nonterminals.end(); nt++) {
+			
+			// check condition 2
+			if ((*firstSets)[*nt].find(0) != (*firstSets)[*nt].end()) {
+				if (!(intersectSets(&(*firstSets)[*nt], &(*followSets)[*nt]))) {
+					hasPredParser = false;
+					break;
+				}
+			}
+
+			// check condition 1
+			if (ruleSets.count(*nt) > 1) {
+				pair<multimap<int, rule*>::iterator, multimap<int, rule*>::iterator> range;
+				range = ruleSets.equal_range(*nt);
+				vector<int> seenSyms;
+				for (auto rule = range.first; rule != range.second; rule++) {
+
+					// calculate the FIRST sets of all the rules, and add all the elements to a vector
+					for (auto symbol = (*rule).second->RHS.begin(); symbol != (*rule).second->RHS.end(); symbol++) {
+						copy((*firstSets)[*symbol].begin(), (*firstSets)[*symbol].end(), back_inserter(seenSyms));
+						if ((*firstSets)[*symbol].find(0) == (*firstSets)[*symbol].end())
+							break;
+					}
+
+				}
+
+				if(!(intersectSets(&seenSyms))) {
+					hasPredParser = false;
+					break;
+				}
+			}
+
+			if (!hasPredParser)
+				break;
+		}
 	}
+
+	if (hasPredParser)
+		cout << "YES" << endl;
+	else
+		cout << "NO" << endl;
 }
     
 int main (int argc, char* argv[]) {
@@ -470,12 +644,59 @@ int main (int argc, char* argv[]) {
 				break;
 			}
 
-        case 4: CalculateFollowSets();
-            break;
+        case 4: 
+			{
+				unordered_map<int, unordered_set<int>>* firstSets = CalculateFirstSets();
+				unordered_map<int, unordered_set<int>>* followSets = CalculateFollowSets(firstSets);
+				printSets(followSets, 0);
+            	break;
+			}
 
         case 5: CheckIfGrammarHasPredictiveParser();
             break;
+		// test set addition function
+		case 6:
+			{
+				unordered_set<int> presetB = {0};
+				unordered_set<int> presetA = {3, 4};
 
+				unordered_set<int> a = presetA;
+				unordered_set<int> b = presetB;
+
+				cout << "set A: ";
+				for (auto it = a.begin(); it != a.end(); it++)
+					cout << *it << ", ";
+				cout << endl << "set B: ";
+				for (auto it = b.begin(); it != b.end(); it++)
+					cout << *it << ", ";
+				cout << endl << endl;
+
+				cout << "add A to B:" << endl;
+				if (addSet(&a, &b, 0)) {
+					cout << "a change occured." << endl
+					 	 << "set B now contains:";
+					for (auto it = b.begin(); it != b.end(); it++)
+						cout << " " << *it;
+					cout << endl;
+				} else
+					cout << "no change." << endl;
+				cout << endl;
+
+				a = presetA;
+				b = presetB;
+				cout << "add A - {epsilon} to B" << endl;
+				if (addSet(&a, &b, 1)) {
+					cout << "a change occured." << endl
+					 	 << "set B now contains:";
+					for (auto it = b.begin(); it != b.end(); it++)
+						cout << " " << *it;
+					cout << endl;
+				} else
+					cout << "no change." << endl;
+				cout << endl;
+
+				break;
+			}
         default:
             cout << "Error: unrecognized task number " << task << "\n";
             break;
