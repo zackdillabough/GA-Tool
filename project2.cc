@@ -581,13 +581,45 @@ void CheckIfGrammarHasPredictiveParser() {
 				pair<multimap<int, rule*>::iterator, multimap<int, rule*>::iterator> range;
 				range = ruleSets.equal_range(*nt);
 				vector<int> seenSyms;
-				for (auto rule = range.first; rule != range.second; rule++) {
+				// map, where int index == rule size
+				multimap<int, rule*> sizeTbl;
+				
+				for (auto ntRule = range.first; ntRule != range.second; ntRule++) {
+					bool uniqueRule = false;
 
-					// calculate the FIRST sets of all the rules, and add all the elements to a vector
-					for (auto symbol = (*rule).second->RHS.begin(); symbol != (*rule).second->RHS.end(); symbol++) {
-						copy((*firstSets)[*symbol].begin(), (*firstSets)[*symbol].end(), back_inserter(seenSyms));
-						if ((*firstSets)[*symbol].find(0) == (*firstSets)[*symbol].end())
-							break;
+					// check if a rule with the same sized RHS has been seen before
+					// if it hasn't, continue
+					int currentRHSsize = (*ntRule).second->RHS.size();
+					rule* currentRule = (*ntRule).second;
+					if (sizeTbl.count(currentRHSsize) == 0) {
+						sizeTbl.insert(pair<int, rule*>(currentRHSsize, currentRule)); // come back
+						uniqueRule = true;
+					// else, check each rule to see if the current rule "rule" has been seen before, symbol by symbol.
+					} else {
+						pair<multimap<int, rule*>::iterator, multimap<int, rule*>::iterator> sizeRange;
+						sizeRange = sizeTbl.equal_range((*ntRule).second->RHS.size());
+						for (auto curr = sizeRange.first; curr != sizeRange.second; curr++) {
+							uniqueRule = false;
+							for (int i = 0; i < (*curr).second->RHS.size(); i++)
+								if ((*curr).second->RHS[i] != (*ntRule).second->RHS[i]) {
+									uniqueRule = true;
+									break;
+								}
+
+							if (!uniqueRule)
+								break;
+						}
+					}
+
+					if (uniqueRule) {
+						// add currently observed rule to the list of unique rules
+						sizeTbl.insert(pair<int, rule*>((*ntRule).second->RHS.size(), (*ntRule).second));
+						// calculate the FIRST sets of all the rules, and add all the elements to a vector
+						for (auto symbol = (*ntRule).second->RHS.begin(); symbol != (*ntRule).second->RHS.end(); symbol++) {
+							copy((*firstSets)[*symbol].begin(), (*firstSets)[*symbol].end(), back_inserter(seenSyms));
+							if ((*firstSets)[*symbol].find(0) == (*firstSets)[*symbol].end())
+								break;
+						}
 					}
 
 				}
