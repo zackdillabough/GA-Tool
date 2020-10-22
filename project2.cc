@@ -348,10 +348,7 @@ unordered_map<int, unordered_set<int>>* CalculateFirstSets() {
 			
 			// apply rule III
 			
-			if(addSet(&(*FIRST)[(*it)->RHS.at(0)], &(*FIRST)[(*it)->LHS], 1)) {
-				if (!changed)
-					changed = true;
-			}
+			changed = changed || addSet(&(*FIRST)[(*it)->RHS.at(0)], &(*FIRST)[(*it)->LHS], 1);
 			
 			// apply rule IV
 			bool fiveApplies = false;
@@ -362,24 +359,17 @@ unordered_map<int, unordered_set<int>>* CalculateFirstSets() {
 					// if it is, then add the next symbol's FIRST set - {epsilon}
 					// to FIRST[LHS]
 					int next = i + 1;
-					if (next < (*it)->RHS.size()) {
-						if (changed) 
-							addSet(&(*FIRST)[(*it)->RHS[next]], &(*FIRST)[(*it)->LHS], 1);
-						else
-							changed = addSet(&(*FIRST)[(*it)->RHS[next]], &(*FIRST)[(*it)->LHS], 1);
-					} else if (next == (*it)->RHS.size()) 
+					if (next < (*it)->RHS.size())
+						changed = changed || addSet(&(*FIRST)[(*it)->RHS[next]], &(*FIRST)[(*it)->LHS], 1);
+					else if (next == (*it)->RHS.size()) 
 						fiveApplies = true;
 				} else
 					break;
 			}
 
 			// apply rule V
-			if (fiveApplies) {
-				if (changed)
-					addSet(&(*FIRST)[0], &(*FIRST)[(*it)->LHS], 0);
-				else
-					changed = addSet(&(*FIRST)[0], &(*FIRST)[(*it)->LHS], 0);
-			}
+			if (fiveApplies)
+				changed = changed || addSet(&(*FIRST)[0], &(*FIRST)[(*it)->LHS], 0);
 		}
 	}
 
@@ -578,12 +568,19 @@ void CheckIfGrammarHasPredictiveParser() {
 
 			// check condition 1
 			if (ruleSets.count(*nt) > 1) {
+
+				// iterator pair of the first and last rule of a given nonterminal
 				pair<multimap<int, rule*>::iterator, multimap<int, rule*>::iterator> range;
 				range = ruleSets.equal_range(*nt);
+
+				// vector used to hold all symbols of a 
+				// given non-terminal's FIRST(RHS) (for every RHS of the given non-terminal)
 				vector<int> seenSyms;
-				// map, where int index == rule size
+
+				// a map where: sizeTbl[rule-size] == rules with a "rule-size" number of symbols
 				multimap<int, rule*> sizeTbl;
 				
+				// iterate through all of the current nonterminal's rules
 				for (auto ntRule = range.first; ntRule != range.second; ntRule++) {
 					bool uniqueRule = false;
 
@@ -594,13 +591,24 @@ void CheckIfGrammarHasPredictiveParser() {
 					if (sizeTbl.count(currentRHSsize) == 0) {
 						sizeTbl.insert(pair<int, rule*>(currentRHSsize, currentRule)); // come back
 						uniqueRule = true;
+
 					// else, check each rule to see if the current rule "rule" has been seen before, symbol by symbol.
 					} else {
+
+						// get pair of iterators that indicate the begin and end of the rules that correspond
+						// to a given rule's RHS size
 						pair<multimap<int, rule*>::iterator, multimap<int, rule*>::iterator> sizeRange;
 						sizeRange = sizeTbl.equal_range((*ntRule).second->RHS.size());
+
+						// iterate through each rule
 						for (auto curr = sizeRange.first; curr != sizeRange.second; curr++) {
+
+							// iterate through all symbols of the current rule, 
+							// and compare them to those of all other rules of the same RHS size.
+							// if a discrepancy is found, then the rule is considered unique
 							uniqueRule = false;
-							for (int i = 0; i < (*curr).second->RHS.size(); i++)
+							//for (int i = 0; i < (*curr).second->RHS.size(); i++)
+							for (int i = 0; i < currentRHSsize; i++)
 								if ((*curr).second->RHS[i] != (*ntRule).second->RHS[i]) {
 									uniqueRule = true;
 									break;
@@ -612,14 +620,19 @@ void CheckIfGrammarHasPredictiveParser() {
 					}
 
 					if (uniqueRule) {
-						// add currently observed rule to the list of unique rules
+						// add currently observed unique rule to the list of unique rules
 						sizeTbl.insert(pair<int, rule*>((*ntRule).second->RHS.size(), (*ntRule).second));
-						// calculate the FIRST sets of all the rules, and add all the elements to a vector
+
+						// calculate the FIRST sets of all the rules, and add all the elements to a vector by
+						// iterating through each symbol of a given rule, adding their FIRST sets until a symbol whose
+						// FIRST set does not contain epsilon is found
+						unordered_set<int> firstRHS;
 						for (auto symbol = (*ntRule).second->RHS.begin(); symbol != (*ntRule).second->RHS.end(); symbol++) {
-							copy((*firstSets)[*symbol].begin(), (*firstSets)[*symbol].end(), back_inserter(seenSyms));
+							addSet(&(*firstSets)[*symbol], &firstRHS, 0);
 							if ((*firstSets)[*symbol].find(0) == (*firstSets)[*symbol].end())
 								break;
 						}
+						copy(firstRHS.begin(), firstRHS.end(), back_inserter(seenSyms));
 					}
 
 				}
