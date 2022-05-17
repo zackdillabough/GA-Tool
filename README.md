@@ -53,6 +53,8 @@ Task one simply outputs the list of terminals in the order in which they appear 
 
 ``` colon ID COMMA decl idList idList1```
 
+---
+
 ### Task 2: Eliminate Useless Symbols
   
 The following is the definition for useless and useful symbols
@@ -93,6 +95,8 @@ Where ```<LHS>``` is the name of the grammar rule and ```<RHS>``` is the right-h
   S -> a
 ```
 
+---
+
 ### Task 3: Calculate First Sets
   
 This task computes the first sets for all the non-terminal symbols. Then, for each of the non-terminals of the input grammar, in the order that it appears in the grammar, one line is output in the following format:
@@ -124,7 +128,9 @@ where ```<symbol>``` is replaced by the non-terminal name and ```<set_items>``` 
   FIRST(idList) = { ID }
   FIRST(idList1) = { #, COMMA }
 ```
-  
+
+---
+
 ### Task 4: Calculate Follow Sets
   
 In Task 4, follow sets are computed for each of the non-terminals in the input grammar. Then, in the order that the non-terminals appear in the grammar, one line is output in the following format:
@@ -156,6 +162,8 @@ where ```<symbol>``` should be replaced by the non-terminal and ```<set_items>``
   FOLLOW(idList) = { colon }
   fFOLLOW(idList1) = { colon }
 ```
+
+---
 
 ### Task 5: Determine Predictive Parser
   
